@@ -1,0 +1,33 @@
+name: Build Plugin
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Package
+        run: |
+          mkdir -p rocknix-lsfg-vk
+          cp plugin.json main.py install.sh package.json rocknix-lsfg-vk/
+          cp -r dist rocknix-lsfg-vk/
+          zip -r rocknix-lsfg-vk.zip rocknix-lsfg-vk/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rocknix-lsfg-vk
+          path: rocknix-lsfg-vk.zip
