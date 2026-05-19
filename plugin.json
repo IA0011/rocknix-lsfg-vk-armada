@@ -1,0 +1,10 @@
+{
+  "name": "LSFG Frame Generation",
+  "author": "seilent",
+  "flags": ["root"],
+  "api_version": 1,
+  "publish": {
+    "tags": ["framegen", "lsfg", "vulkan", "rocknix"],
+    "description": "Enable Lossless Scaling frame generation on ROCKNIX. Automates .so installation, DLL detection, and per-game configuration."
+  }
+}
