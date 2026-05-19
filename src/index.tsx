@@ -38,6 +38,7 @@ const saveGameSettings = callable<[appId: string, settings: string], boolean>("s
 const getDefaultSettings = callable<[], Settings>("get_default_settings");
 const saveDefaultSettings = callable<[settings: string], boolean>("save_default_settings");
 const reinstallLayer = callable<[], boolean>("reinstall_layer");
+const installRuntime = callable<[], boolean>("install_runtime");
 
 const MULTIPLIER_OPTIONS = [
   { value: 0, label: "OFF" },
@@ -109,7 +110,7 @@ function SettingsControls({ settings, onChange }: SettingsControlsProps) {
 
 function copyLaunchOptions() {
   const input = document.createElement('input');
-  input.value = 'lsfg %command%';
+  input.value = '~/lsfg %command%';
   input.style.position = 'absolute';
   input.style.left = '-9999px';
   document.body.appendChild(input);
@@ -190,10 +191,31 @@ function Content() {
       <PanelSection title="LSFG Frame Gen">
         <PanelSectionRow>
           <div style={{ fontSize: "12px" }}>
-            ✗ ROCKNIX lsfg-vk package not installed.
-            Update your ROCKNIX image.
+            LSFG-VK layer not installed.
           </div>
         </PanelSectionRow>
+        <PanelSectionRow>
+          <ButtonItem
+            layout="below"
+            disabled={reinstalling}
+            onClick={async () => {
+              setReinstalling(true);
+              const ok = await installRuntime();
+              setReinstalling(false);
+              if (ok) setStatus({ ...status, system_installed: false, layer_deployed: false, dll_detected: status.dll_detected });
+              setDirty(ok);
+            }}
+          >
+            {reinstalling ? "Scheduling..." : dirty ? "Reboot to complete install" : "Install LSFG-VK"}
+          </ButtonItem>
+        </PanelSectionRow>
+        {dirty && (
+          <PanelSectionRow>
+            <div style={{ fontSize: "11px", color: "#ffaa00" }}>
+              Reboot to complete installation.
+            </div>
+          </PanelSectionRow>
+        )}
       </PanelSection>
     );
   }
