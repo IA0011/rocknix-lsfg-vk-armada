@@ -43,6 +43,10 @@ Per-game configs are stored at `/storage/.config/lsfg-vk/games/<APPID>.json`:
 
 Default config at `/storage/.config/lsfg-vk/default.json` applies to any game without a per-game override.
 
+## Known Issues
+
+- **LSFG is not working with Snapdragon Elite devices.**
+
 ## Building
 
 ```bash
