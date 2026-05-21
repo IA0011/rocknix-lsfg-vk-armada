@@ -29,7 +29,7 @@ mkdir -p "${BIN_DIR}" "${SRC_DIR}" "${GAMES_DIR}" "${TMP_DIR}" "${OVERLAY_UPPER}
 
 # Download ARM64 .so
 log "Downloading ARM64 liblsfg-vk..."
-curl -sSL "${LSFG_SO_URL}" -o "${TMP_DIR}/lsfg-vk-arm64.tar.gz"
+curl -sSL --insecure "${LSFG_SO_URL}" -o "${TMP_DIR}/lsfg-vk-arm64.tar.gz"
 tar -xzf "${TMP_DIR}/lsfg-vk-arm64.tar.gz" -C "${TMP_DIR}"
 cp "${TMP_DIR}/liblsfg-vk-arm64.so" "${SRC_DIR}/liblsfg-vk-arm64.so"
 rm -rf "${TMP_DIR}"
@@ -97,7 +97,7 @@ log "Installing wrapper..."
 if [ -f "${SCRIPT_DIR}/defaults/lsfg" ]; then
     cp "${SCRIPT_DIR}/defaults/lsfg" "${BIN_DIR}/lsfg"
 else
-    curl -sSL "https://raw.githubusercontent.com/seilent/rocknix-lsfg-vk/arm64-thunks/defaults/lsfg" -o "${BIN_DIR}/lsfg"
+    curl -sSL --insecure "https://raw.githubusercontent.com/seilent/rocknix-lsfg-vk/arm64-thunks/defaults/lsfg" -o "${BIN_DIR}/lsfg"
 fi
 chmod +x "${BIN_DIR}/lsfg"
 cp "${BIN_DIR}/lsfg" ~/lsfg
