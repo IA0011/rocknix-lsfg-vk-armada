@@ -66,6 +66,11 @@ if ! mount | grep -q "overlay on /usr/lib"; then
     log "Overlay mounted"
 fi
 
+# Also deploy manifest to XDG path (for native ARM64 Proton games without pressure-vessel)
+mkdir -p /storage/.local/share/vulkan/implicit_layer.d
+cp "${OVERLAY_UPPER}/pressure-vessel/overrides/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation_arm64.json" \
+    /storage/.local/share/vulkan/implicit_layer.d/
+
 # Create boot service to mount overlay before Steam
 log "Installing boot service..."
 mkdir -p /storage/.config/system.d/multi-user.target.wants
