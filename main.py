@@ -31,10 +31,10 @@ FEX_JSON = os.path.join(
 # FEX config (for Vulkan thunks)
 FEX_CONFIG = "/storage/.config/fex-emu/Config.json"
 
-# ARM64 native paths
-ARM64_SO = "/usr/lib/liblsfg-vk-arm64.so"
-ARM64_MANIFEST_DIR = "/usr/lib/pressure-vessel/overrides/share/vulkan/implicit_layer.d"
-ARM64_MANIFEST = os.path.join(ARM64_MANIFEST_DIR, "VkLayer_LS_frame_generation.json")
+# ARM64 native paths (all under writable /storage)
+ARM64_SO = os.path.join(LSFG_DIR, "lib/liblsfg-vk-arm64.so")
+ARM64_MANIFEST_DIR = os.path.join(LSFG_DIR, "manifests")
+ARM64_MANIFEST = os.path.join(ARM64_MANIFEST_DIR, "VkLayer_LS_frame_generation_arm64.json")
 ARM64_WRAPPER = os.path.join(LSFG_DIR, "bin/lsfg")
 
 # Lossless Scaling DLL paths
@@ -163,12 +163,52 @@ class Plugin:
         return True
 
     async def deploy_arm64(self):
-        """Deploy ARM64 native layer: manifest, thunks, DLL symlink, wrapper."""
+        """Deploy ARM64 native layer: manifest, thunks, DLL symlink, wrapper, boot service."""
         try:
-            # 1. Install manifest to pressure-vessel overrides
+            # 1. Install manifest to staging dir
             os.makedirs(ARM64_MANIFEST_DIR, exist_ok=True)
             manifest_src = os.path.join(decky.DECKY_PLUGIN_DIR, "defaults/VkLayer_LS_frame_generation.json")
             shutil.copy2(manifest_src, ARM64_MANIFEST)
+
+            # 1b. Deploy to pressure-vessel overrides (volatile, recreated on boot)
+            pv_dir = "/usr/lib/pressure-vessel/overrides/share/vulkan/implicit_layer.d"
+            os.makedirs(pv_dir, exist_ok=True)
+            shutil.copy2(ARM64_MANIFEST, os.path.join(pv_dir, "VkLayer_LS_frame_generation_arm64.json"))
+
+            # 1c. Create setup script for boot-time re-deployment
+            bin_dir = os.path.join(LSFG_DIR, "bin")
+            os.makedirs(bin_dir, exist_ok=True)
+            setup_path = os.path.join(bin_dir, "lsfg-vk-setup")
+            with open(setup_path, "w") as f:
+                f.write(f"""#!/bin/sh
+PV_DIR="/usr/lib/pressure-vessel/overrides/share/vulkan/implicit_layer.d"
+mkdir -p "$PV_DIR"
+cp "{ARM64_MANIFEST}" "$PV_DIR/"
+""")
+            os.chmod(setup_path, 0o755)
+
+            # 1d. Install systemd service
+            svc_dir = "/storage/.config/system.d"
+            wants_dir = os.path.join(svc_dir, "multi-user.target.wants")
+            os.makedirs(wants_dir, exist_ok=True)
+            svc_path = os.path.join(svc_dir, "lsfg-vk-arm64.service")
+            with open(svc_path, "w") as f:
+                f.write(f"""[Unit]
+Description=Deploy LSFG-VK ARM64 layer manifest
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={setup_path}
+
+[Install]
+WantedBy=multi-user.target
+""")
+            link = os.path.join(wants_dir, "lsfg-vk-arm64.service")
+            if os.path.lexists(link):
+                os.remove(link)
+            os.symlink(svc_path, link)
 
             # 2. Enable FEX Vulkan thunks
             _enable_thunks()
@@ -196,13 +236,8 @@ class Plugin:
             if not os.path.exists(LOSSLESS_DLL_SYMLINK):
                 if os.path.exists(LOSSLESS_DLL_PATH):
                     os.symlink(LOSSLESS_DLL_PATH, LOSSLESS_DLL_SYMLINK)
-                else:
-                    # Create placeholder so the layer doesn't error
-                    open(LOSSLESS_DLL_SYMLINK, "a").close()
 
             # 4. Install lsfg wrapper
-            bin_dir = os.path.join(LSFG_DIR, "bin")
-            os.makedirs(bin_dir, exist_ok=True)
             wrapper_src = os.path.join(decky.DECKY_PLUGIN_DIR, "defaults/lsfg")
             shutil.copy2(wrapper_src, ARM64_WRAPPER)
             os.chmod(ARM64_WRAPPER, 0o755)
