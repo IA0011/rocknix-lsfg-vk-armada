@@ -279,7 +279,10 @@ WantedBy=multi-user.target
         return True
 
     async def reinstall_layer(self):
-        """Re-schedule deploy (user must reboot)."""
+        """Download fresh .so and re-schedule deploy (user must reboot)."""
+        result = await self.download_layer()
+        if not result.get("success"):
+            return False
         return await self.install_runtime()
 
     async def _main(self):

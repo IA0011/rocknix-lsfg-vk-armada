@@ -184,6 +184,7 @@ function Content() {
     await reinstallLayer();
     await refresh();
     setReinstalling(false);
+    setDirty(true);
   };
 
   if (!status) {
@@ -336,7 +337,7 @@ function Content() {
             disabled={reinstalling}
             onClick={handleReinstall}
           >
-            {reinstalling ? "Reinstalling..." : "Reinstall Layer"}
+            {reinstalling ? "Downloading..." : dirty ? "Reboot to apply" : "Reinstall Layer"}
           </ButtonItem>
         </PanelSectionRow>
         <PanelSectionRow>
