@@ -35,7 +35,7 @@ FEX_CONFIG = "/storage/.config/fex-emu/Config.json"
 ARM64_SO = "/usr/lib/liblsfg-vk-arm64.so"
 ARM64_MANIFEST_DIR = "/usr/lib/pressure-vessel/overrides/share/vulkan/implicit_layer.d"
 ARM64_MANIFEST = os.path.join(ARM64_MANIFEST_DIR, "VkLayer_LS_frame_generation.json")
-ARM64_WRAPPER = os.path.join(LSFG_DIR, "bin/ls")
+ARM64_WRAPPER = os.path.join(LSFG_DIR, "bin/lsfg")
 
 # Lossless Scaling DLL paths
 LOSSLESS_DLL_PATH = (
