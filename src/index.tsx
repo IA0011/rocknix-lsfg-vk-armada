@@ -41,6 +41,7 @@ const reinstallLayer = callable<[], boolean>("reinstall_layer");
 const installRuntime = callable<[], boolean>("install_runtime");
 const listGameProfiles = callable<[], string[]>("list_game_profiles");
 const downloadLayer = callable<[], {success: boolean, size?: number, error?: string}>("download_layer");
+const deleteGameProfile = callable<[appId: string], boolean>("delete_game_profile");
 
 const MULTIPLIER_OPTIONS = [
   { value: 0, label: "OFF" },
@@ -321,11 +322,27 @@ function Content() {
             />
           </PanelSectionRow>
           {selectedProfile && profileSettings && (
-            <SettingsControls settings={profileSettings} onChange={async (key, value) => {
-              const updated = { ...profileSettings, [key]: value };
-              setProfileSettings(updated);
-              await saveGameSettings(selectedProfile, JSON.stringify(updated));
-            }} />
+            <>
+              <SettingsControls settings={profileSettings} onChange={async (key, value) => {
+                const updated = { ...profileSettings, [key]: value };
+                setProfileSettings(updated);
+                await saveGameSettings(selectedProfile, JSON.stringify(updated));
+              }} />
+              <PanelSectionRow>
+                <ButtonItem
+                  layout="below"
+                  onClick={async () => {
+                    await deleteGameProfile(selectedProfile);
+                    setSelectedProfile(null);
+                    setProfileSettings(null);
+                    const p = await listGameProfiles();
+                    setProfiles(p);
+                  }}
+                >
+                  Delete Profile
+                </ButtonItem>
+              </PanelSectionRow>
+            </>
           )}
         </PanelSection>
       )}

@@ -123,6 +123,12 @@ class Plugin:
         _save_json(path, json.loads(settings))
         return True
 
+    async def delete_game_profile(self, app_id: str):
+        path = os.path.join(GAMES_DIR, f"{app_id}.json")
+        if os.path.exists(path):
+            os.remove(path)
+        return True
+
     async def get_default_settings(self):
         cfg = _load_settings(DEFAULT_CONF)
         if cfg is not None:
