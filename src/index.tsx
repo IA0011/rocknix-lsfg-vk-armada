@@ -1,7 +1,7 @@
 import { callable, definePlugin } from "@decky/api";
 import {
   PanelSection, PanelSectionRow, SliderField,
-  ButtonItem, ToggleField
+  ButtonItem, ToggleField, Dropdown
 } from "@decky/ui";
 import { useState, useEffect } from "react";
 import { FaBolt } from "react-icons/fa";
@@ -304,21 +304,19 @@ function Content() {
       {profiles.length > 0 && (
         <PanelSection title="Game Profiles">
           <PanelSectionRow>
-            <SliderField
-              label="Select Game"
-              description={selectedProfile ? (appStore.GetAppOverviewByAppID(Number(selectedProfile))?.display_name ?? `App ${selectedProfile}`) : "None"}
-              value={selectedProfile ? profiles.indexOf(selectedProfile) : -1}
-              min={0}
-              max={profiles.length - 1}
-              step={1}
-              notchCount={profiles.length}
-              notchLabels={profiles.map((p, i) => ({ notchIndex: i, label: appStore.GetAppOverviewByAppID(Number(p))?.display_name?.substring(0, 8) ?? p }))}
-              onChange={async (idx) => {
-                const id = profiles[idx];
+            <Dropdown
+              rgOptions={profiles.map(p => ({
+                data: p,
+                label: appStore.GetAppOverviewByAppID(Number(p))?.display_name ?? `App ${p}`,
+              }))}
+              selectedOption={selectedProfile ?? undefined}
+              onChange={async (opt) => {
+                const id = opt.data as string;
                 setSelectedProfile(id);
                 const cfg = await getGameSettings(id);
                 setProfileSettings(cfg);
               }}
+              strDefaultLabel="Select a game..."
             />
           </PanelSectionRow>
           {selectedProfile && profileSettings && (
