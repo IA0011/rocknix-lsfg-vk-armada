@@ -56,11 +56,12 @@ DEFAULT_SETTINGS = {
 
 
 def _system_installed():
-    """Check that lsfg-vk is available (system package or runtime install)."""
+    """Check that lsfg-vk ARM64 native setup is fully functional."""
     return (
-        (os.path.exists(SYSTEM_SO) and os.path.exists(SYSTEM_WRAPPER))
-        or (os.path.exists(RUNTIME_SO) and os.path.exists(RUNTIME_WRAPPER))
-        or os.path.exists(ARM64_SO)
+        os.path.exists(ARM64_SO)
+        and os.path.exists(ARM64_MANIFEST)
+        and _thunks_enabled()
+        and os.path.exists(ARM64_WRAPPER)
     )
 
 
@@ -171,6 +172,23 @@ class Plugin:
 
             # 2. Enable FEX Vulkan thunks
             _enable_thunks()
+
+            # 2b. Persist thunks in ROCKNIX system.cfg (survives reboot)
+            system_cfg = "/storage/.config/system/configs/system.cfg"
+            setting_line = "steam.vulkan_host_library=1"
+            if os.path.exists(system_cfg):
+                with open(system_cfg, "r") as f:
+                    lines = f.readlines()
+                found = False
+                for i, line in enumerate(lines):
+                    if line.startswith("steam.vulkan_host_library"):
+                        lines[i] = setting_line + "\n"
+                        found = True
+                        break
+                if not found:
+                    lines.append(setting_line + "\n")
+                with open(system_cfg, "w") as f:
+                    f.writelines(lines)
 
             # 3. Create Lossless.dll symlink
             dll_dir = os.path.dirname(LOSSLESS_DLL_SYMLINK)

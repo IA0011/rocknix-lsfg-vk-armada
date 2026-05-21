@@ -79,6 +79,14 @@ else
 EOF
 fi
 
+# Persist thunks setting so it survives reboot (ROCKNIX start_steam.sh reads this)
+SYSTEM_CFG="/storage/.config/system/configs/system.cfg"
+if grep -q "steam.vulkan_host_library" "$SYSTEM_CFG" 2>/dev/null; then
+    sed -i "s/steam.vulkan_host_library=.*/steam.vulkan_host_library=1/" "$SYSTEM_CFG"
+else
+    echo "steam.vulkan_host_library=1" >> "$SYSTEM_CFG"
+fi
+
 # Create wrapper script
 log "Creating lsfg wrapper..."
 mkdir -p "${LSFG_DIR}/bin"
