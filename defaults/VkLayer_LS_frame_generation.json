@@ -3,7 +3,7 @@
   "layer": {
     "name": "VK_LAYER_LSFGVK_frame_generation",
     "type": "GLOBAL",
-    "library_path": "/storage/.config/lsfg-vk/lib/liblsfg-vk-arm64.so",
+    "library_path": "/usr/lib/liblsfg-vk-arm64.so",
     "api_version": "1.4.328",
     "implementation_version": "2",
     "description": "LSFG frame generation (ARM64 native)",

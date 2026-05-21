@@ -7,9 +7,10 @@ LSFG_DIR = "/storage/.config/lsfg-vk"
 GAMES_DIR = os.path.join(LSFG_DIR, "games")
 DEFAULT_CONF = os.path.join(LSFG_DIR, "default.json")
 
-# ARM64 native paths (all under writable /storage)
-ARM64_SO = os.path.join(LSFG_DIR, "lib/liblsfg-vk-arm64.so")
-ARM64_MANIFEST = os.path.join(LSFG_DIR, "manifests/VkLayer_LS_frame_generation_arm64.json")
+# ARM64 native paths
+FEX_ROOTFS = "/storage/.local/share/fex-emu/RootFS/ArchLinux"
+ARM64_SO = os.path.join(FEX_ROOTFS, "usr/lib/liblsfg-vk-arm64.so")
+ARM64_MANIFEST = os.path.join(FEX_ROOTFS, "usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation_arm64.json")
 ARM64_WRAPPER = os.path.join(LSFG_DIR, "bin/lsfg")
 
 # FEX config
@@ -123,12 +124,24 @@ class Plugin:
         return True
 
     async def reinstall_layer(self):
-        """Re-run deploy: copy wrapper, manifest, enable thunks."""
+        """Re-deploy layer to FEX RootFS, wrapper, thunks."""
         try:
-            os.makedirs(os.path.join(LSFG_DIR, "bin"), exist_ok=True)
-            os.makedirs(os.path.join(LSFG_DIR, "manifests"), exist_ok=True)
+            src_so = os.path.join(LSFG_DIR, "lib/liblsfg-vk-arm64.so")
+            if not os.path.exists(src_so):
+                decky.logger.error("ARM64 .so not found in lib/")
+                return False
 
-            # Copy wrapper
+            # Deploy .so to FEX RootFS
+            os.makedirs(os.path.dirname(ARM64_SO), exist_ok=True)
+            shutil.copy2(src_so, ARM64_SO)
+
+            # Deploy manifest to FEX RootFS
+            os.makedirs(os.path.dirname(ARM64_MANIFEST), exist_ok=True)
+            manifest_src = os.path.join(decky.DECKY_PLUGIN_DIR, "defaults/VkLayer_LS_frame_generation.json")
+            shutil.copy2(manifest_src, ARM64_MANIFEST)
+
+            # Install wrapper
+            os.makedirs(os.path.join(LSFG_DIR, "bin"), exist_ok=True)
             wrapper_src = os.path.join(decky.DECKY_PLUGIN_DIR, "defaults/lsfg")
             shutil.copy2(wrapper_src, ARM64_WRAPPER)
             os.chmod(ARM64_WRAPPER, 0o755)
@@ -136,10 +149,6 @@ class Plugin:
             if os.path.lexists(home_link):
                 os.remove(home_link)
             os.symlink(ARM64_WRAPPER, home_link)
-
-            # Copy manifest
-            manifest_src = os.path.join(decky.DECKY_PLUGIN_DIR, "defaults/VkLayer_LS_frame_generation.json")
-            shutil.copy2(manifest_src, ARM64_MANIFEST)
 
             # Enable thunks
             _enable_thunks()

@@ -1,7 +1,7 @@
 #!/bin/sh
 # LSFG-VK ARM64 installer
-# Downloads ARM64 layer, sets up wrapper, enables thunks.
-# No boot service needed - wrapper handles manifest deployment at launch time.
+# Same pattern as main branch: downloads .so, deploys to FEX RootFS, installs wrapper.
+# With thunks enabled, the native ARM64 loader finds the layer in FEX RootFS paths.
 
 set -euo pipefail
 
@@ -10,7 +10,7 @@ LSFG_DIR="/storage/.config/lsfg-vk"
 BIN_DIR="${LSFG_DIR}/bin"
 SRC_DIR="${LSFG_DIR}/lib"
 GAMES_DIR="${LSFG_DIR}/games"
-MANIFESTS_DIR="${LSFG_DIR}/manifests"
+FEX_ROOTFS="/storage/.local/share/fex-emu/RootFS/ArchLinux"
 FEX_CONFIG="/storage/.config/fex-emu/Config.json"
 TMP_DIR="/tmp/lsfg-vk-install"
 
@@ -21,7 +21,7 @@ if [ "$(uname -m)" != "aarch64" ]; then
 fi
 
 # Create directories
-mkdir -p "${BIN_DIR}" "${SRC_DIR}" "${GAMES_DIR}" "${MANIFESTS_DIR}" "${TMP_DIR}"
+mkdir -p "${BIN_DIR}" "${SRC_DIR}" "${GAMES_DIR}" "${TMP_DIR}"
 
 # Default config
 [ -f "${LSFG_DIR}/default.json" ] || echo '{"multiplier": 2, "fps_limit": 30, "flow_scale": 0.3, "performance_mode": 1}' > "${LSFG_DIR}/default.json"
@@ -33,18 +33,23 @@ tar -xzf "${TMP_DIR}/lsfg-vk-arm64.tar.gz" -C "${TMP_DIR}"
 cp "${TMP_DIR}/liblsfg-vk-arm64.so" "${SRC_DIR}/liblsfg-vk-arm64.so"
 rm -rf "${TMP_DIR}"
 
-# Deploy manifest (persistent copy - wrapper copies to /tmp at launch)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-if [ -f "${SCRIPT_DIR}/defaults/VkLayer_LS_frame_generation.json" ]; then
-    cp "${SCRIPT_DIR}/defaults/VkLayer_LS_frame_generation.json" "${MANIFESTS_DIR}/VkLayer_LS_frame_generation_arm64.json"
-else
-    cat > "${MANIFESTS_DIR}/VkLayer_LS_frame_generation_arm64.json" << EOF
+# Deploy to FEX RootFS (same pattern as main branch)
+if [ -d "$FEX_ROOTFS" ]; then
+    log "Deploying layer into FEX RootFS..."
+    install -D -m 0644 "${SRC_DIR}/liblsfg-vk-arm64.so" "${FEX_ROOTFS}/usr/lib/liblsfg-vk-arm64.so"
+
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    if [ -f "${SCRIPT_DIR}/defaults/VkLayer_LS_frame_generation.json" ]; then
+        install -D -m 0644 "${SCRIPT_DIR}/defaults/VkLayer_LS_frame_generation.json" \
+            "${FEX_ROOTFS}/usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation_arm64.json"
+    else
+        cat > "${FEX_ROOTFS}/usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation_arm64.json" << EOF
 {
   "file_format_version": "1.0.0",
   "layer": {
     "name": "VK_LAYER_LSFGVK_frame_generation",
     "type": "GLOBAL",
-    "library_path": "${SRC_DIR}/liblsfg-vk-arm64.so",
+    "library_path": "/usr/lib/liblsfg-vk-arm64.so",
     "api_version": "1.4.328",
     "implementation_version": "2",
     "description": "LSFG frame generation (ARM64 native)",
@@ -53,9 +58,13 @@ else
   }
 }
 EOF
+    fi
+else
+    log "WARNING: FEX RootFS not found at ${FEX_ROOTFS}"
 fi
 
 # Install wrapper
+log "Installing wrapper..."
 if [ -f "${SCRIPT_DIR}/defaults/lsfg" ]; then
     cp "${SCRIPT_DIR}/defaults/lsfg" "${BIN_DIR}/lsfg"
 else

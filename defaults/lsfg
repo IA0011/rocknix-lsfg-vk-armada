@@ -1,14 +1,9 @@
 #!/bin/bash
 # LSFG-VK ARM64 launch wrapper
-# Deploys manifest to /tmp, reads per-game settings, sets env vars
+# Reads per-game settings, sets env vars, enables thunks
 
 CONFIG_DIR="/storage/.config/lsfg-vk"
 APP_ID="${SteamAppId:-0}"
-LAYER_DIR="/tmp/lsfg-layers"
-
-# Deploy manifest (wrapper handles this - no boot service needed)
-mkdir -p "$LAYER_DIR"
-cp "$CONFIG_DIR/manifests/VkLayer_LS_frame_generation_arm64.json" "$LAYER_DIR/" 2>/dev/null
 
 # Load settings (per-game or default)
 if [ -f "$CONFIG_DIR/games/$APP_ID.json" ]; then
@@ -36,7 +31,7 @@ else
     export DXVK_FRAME_RATE="$FPS_LIMIT"
 fi
 
-# Enable FEX Vulkan thunks + tell loader where our manifest is
+# Enable FEX Vulkan thunks (JIT - ensures thunks are on before game starts)
 python3 -c "
 import json, os
 c='/storage/.config/fex-emu/Config.json'
@@ -47,6 +42,5 @@ if os.path.exists(c):
         json.dump(d,open(c,'w'),indent=2)
 " 2>/dev/null
 export STEAM_COMPAT_FEX_CONFIG=/storage/.config/fex-emu/Config.json
-export VK_IMPLICIT_LAYER_PATH="$LAYER_DIR"
 
 exec "$@"
