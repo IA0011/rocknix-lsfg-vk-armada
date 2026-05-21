@@ -10,6 +10,11 @@ if [ -f "$CONFIG_DIR/games/$APP_ID.json" ]; then
     SETTINGS="$CONFIG_DIR/games/$APP_ID.json"
 else
     SETTINGS="$CONFIG_DIR/default.json"
+    # Auto-create per-game profile from defaults
+    if [ "$APP_ID" != "0" ] && [ -f "$SETTINGS" ]; then
+        mkdir -p "$CONFIG_DIR/games"
+        cp "$SETTINGS" "$CONFIG_DIR/games/$APP_ID.json"
+    fi
 fi
 
 # Parse JSON settings
