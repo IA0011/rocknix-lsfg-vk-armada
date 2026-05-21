@@ -40,6 +40,7 @@ const saveDefaultSettings = callable<[settings: string], boolean>("save_default_
 const reinstallLayer = callable<[], boolean>("reinstall_layer");
 const installRuntime = callable<[], boolean>("install_runtime");
 const listGameProfiles = callable<[], string[]>("list_game_profiles");
+const downloadLayer = callable<[], {success: boolean, size?: number, error?: string}>("download_layer");
 
 const MULTIPLIER_OPTIONS = [
   { value: 0, label: "OFF" },
@@ -129,6 +130,7 @@ function Content() {
   const [gameName, setGameName] = useState(state.runningGameName);
   const [dirty, setDirty] = useState(false);
   const [reinstalling, setReinstalling] = useState(false);
+  const [installProgress, setInstallProgress] = useState("");
   const [profiles, setProfiles] = useState<string[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
   const [profileSettings, setProfileSettings] = useState<Settings | null>(null);
@@ -206,13 +208,25 @@ function Content() {
             disabled={reinstalling}
             onClick={async () => {
               setReinstalling(true);
+              setInstallProgress("Downloading...");
+              const dl = await downloadLayer();
+              if (!dl.success) {
+                setInstallProgress(`Error: ${dl.error}`);
+                setReinstalling(false);
+                return;
+              }
+              setInstallProgress("Scheduling deploy...");
               const ok = await installRuntime();
               setReinstalling(false);
-              if (ok) setStatus({ ...status, system_installed: false, layer_deployed: false, dll_detected: status.dll_detected });
-              setDirty(ok);
+              if (ok) {
+                setInstallProgress("");
+                setDirty(true);
+              } else {
+                setInstallProgress("Failed to schedule deploy");
+              }
             }}
           >
-            {reinstalling ? "Scheduling..." : dirty ? "Reboot to complete install" : "Install LSFG-VK"}
+            {reinstalling ? installProgress || "Working..." : dirty ? "Reboot to complete install" : "Install LSFG-VK"}
           </ButtonItem>
         </PanelSectionRow>
         {dirty && (
