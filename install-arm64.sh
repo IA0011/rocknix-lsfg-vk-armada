@@ -1,7 +1,7 @@
 #!/bin/sh
 # LSFG-VK ARM64 installer
-# Same pattern as main branch: downloads .so, deploys to FEX RootFS, installs wrapper.
-# With thunks enabled, the native ARM64 loader finds the layer in FEX RootFS paths.
+# Deploys ARM64 layer via /usr/lib overlay mount (immutable OS workaround).
+# A boot service mounts the overlay before Steam starts.
 
 set -euo pipefail
 
@@ -10,7 +10,8 @@ LSFG_DIR="/storage/.config/lsfg-vk"
 BIN_DIR="${LSFG_DIR}/bin"
 SRC_DIR="${LSFG_DIR}/lib"
 GAMES_DIR="${LSFG_DIR}/games"
-FEX_ROOTFS="/storage/.local/share/fex-emu/RootFS/ArchLinux"
+OVERLAY_UPPER="/storage/.tmp/pv-upper"
+OVERLAY_WORK="/storage/.tmp/pv-work"
 FEX_CONFIG="/storage/.config/fex-emu/Config.json"
 TMP_DIR="/tmp/lsfg-vk-install"
 
@@ -21,7 +22,7 @@ if [ "$(uname -m)" != "aarch64" ]; then
 fi
 
 # Create directories
-mkdir -p "${BIN_DIR}" "${SRC_DIR}" "${GAMES_DIR}" "${TMP_DIR}"
+mkdir -p "${BIN_DIR}" "${SRC_DIR}" "${GAMES_DIR}" "${TMP_DIR}" "${OVERLAY_UPPER}" "${OVERLAY_WORK}"
 
 # Default config
 [ -f "${LSFG_DIR}/default.json" ] || echo '{"multiplier": 2, "fps_limit": 30, "flow_scale": 0.3, "performance_mode": 1}' > "${LSFG_DIR}/default.json"
@@ -33,17 +34,16 @@ tar -xzf "${TMP_DIR}/lsfg-vk-arm64.tar.gz" -C "${TMP_DIR}"
 cp "${TMP_DIR}/liblsfg-vk-arm64.so" "${SRC_DIR}/liblsfg-vk-arm64.so"
 rm -rf "${TMP_DIR}"
 
-# Deploy to FEX RootFS (same pattern as main branch)
-if [ -d "$FEX_ROOTFS" ]; then
-    log "Deploying layer into FEX RootFS..."
-    install -D -m 0644 "${SRC_DIR}/liblsfg-vk-arm64.so" "${FEX_ROOTFS}/usr/lib/liblsfg-vk-arm64.so"
-
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    if [ -f "${SCRIPT_DIR}/defaults/VkLayer_LS_frame_generation.json" ]; then
-        install -D -m 0644 "${SCRIPT_DIR}/defaults/VkLayer_LS_frame_generation.json" \
-            "${FEX_ROOTFS}/usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation_arm64.json"
-    else
-        cat > "${FEX_ROOTFS}/usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation_arm64.json" << EOF
+# Deploy .so and manifest to overlay upper dir
+log "Deploying to overlay..."
+cp "${SRC_DIR}/liblsfg-vk-arm64.so" "${OVERLAY_UPPER}/liblsfg-vk-arm64.so"
+mkdir -p "${OVERLAY_UPPER}/pressure-vessel/overrides/share/vulkan/implicit_layer.d"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "${SCRIPT_DIR}/defaults/VkLayer_LS_frame_generation.json" ]; then
+    cp "${SCRIPT_DIR}/defaults/VkLayer_LS_frame_generation.json" \
+        "${OVERLAY_UPPER}/pressure-vessel/overrides/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation_arm64.json"
+else
+    cat > "${OVERLAY_UPPER}/pressure-vessel/overrides/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation_arm64.json" << EOF
 {
   "file_format_version": "1.0.0",
   "layer": {
@@ -58,10 +58,34 @@ if [ -d "$FEX_ROOTFS" ]; then
   }
 }
 EOF
-    fi
-else
-    log "WARNING: FEX RootFS not found at ${FEX_ROOTFS}"
 fi
+
+# Mount overlay now (if not already mounted)
+if ! mount | grep -q "overlay on /usr/lib"; then
+    mount -t overlay overlay -o "lowerdir=/usr/lib,upperdir=${OVERLAY_UPPER},workdir=${OVERLAY_WORK}" /usr/lib
+    log "Overlay mounted"
+fi
+
+# Create boot service to mount overlay before Steam
+log "Installing boot service..."
+mkdir -p /storage/.config/system.d/multi-user.target.wants
+cat > /storage/.config/system.d/lsfg-vk-overlay.service << EOF
+[Unit]
+Description=Mount /usr/lib overlay for LSFG-VK
+DefaultDependencies=no
+Before=steam-bigpicture.scope gamescope.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'mkdir -p ${OVERLAY_UPPER} ${OVERLAY_WORK} && mount -t overlay overlay -o lowerdir=/usr/lib,upperdir=${OVERLAY_UPPER},workdir=${OVERLAY_WORK} /usr/lib'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+ln -sf /storage/.config/system.d/lsfg-vk-overlay.service \
+    /storage/.config/system.d/multi-user.target.wants/lsfg-vk-overlay.service
 
 # Install wrapper
 log "Installing wrapper..."
@@ -84,7 +108,7 @@ cfg.setdefault('ThunksDB', {})['Vulkan'] = 1
 json.dump(cfg, open('${FEX_CONFIG}', 'w'), indent=2)
 "
 
-# Create Lossless.dll symlink
+# Create Lossless.dll symlink for standard path discovery
 DLL_SRC="/storage/games-internal/roms/steam/steamapps/common/Lossless Scaling/Lossless.dll"
 DLL_DIR="/storage/.local/share/Steam/steamapps/common/Lossless Scaling"
 if [ -f "$DLL_SRC" ]; then
