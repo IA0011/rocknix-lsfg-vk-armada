@@ -24,6 +24,15 @@ fi
 # Create directories
 mkdir -p "${BIN_DIR}" "${SRC_DIR}" "${GAMES_DIR}" "${TMP_DIR}" "${OVERLAY_UPPER}" "${OVERLAY_WORK}"
 
+# Cleanup old x86_64 layer remnants (from main branch install)
+FEX_ROOTFS="/storage/.local/share/fex-emu/RootFS/ArchLinux"
+if [ -d "$FEX_ROOTFS" ]; then
+    rm -f "${FEX_ROOTFS}/usr/lib/liblsfg-vk.so"
+    rm -f "${FEX_ROOTFS}/usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.x86_64.json"
+fi
+rm -f "${SRC_DIR}/liblsfg-vk.so" "${SRC_DIR}/VkLayer_LS_frame_generation.json" "${SRC_DIR}/user_settings.py"
+rm -f /storage/.config/system.d/lsfg-vk-setup.service /storage/.config/system.d/multi-user.target.wants/lsfg-vk-setup.service
+
 # Default config
 [ -f "${LSFG_DIR}/default.json" ] || echo '{"multiplier": 2, "fps_limit": 30, "flow_scale": 0.3, "performance_mode": 1}' > "${LSFG_DIR}/default.json"
 

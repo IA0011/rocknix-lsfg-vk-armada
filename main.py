@@ -1,6 +1,5 @@
 import os
 import json
-import shutil
 import decky
 
 LSFG_DIR = "/storage/.config/lsfg-vk"
@@ -124,56 +123,8 @@ class Plugin:
         return True
 
     async def reinstall_layer(self):
-        """Re-deploy layer to overlay upper dir, wrapper, thunks."""
-        try:
-            src_so = os.path.join(LSFG_DIR, "lib/liblsfg-vk-arm64.so")
-            if not os.path.exists(src_so):
-                decky.logger.error("ARM64 .so not found in lib/")
-                return False
-
-            # Deploy .so to overlay upper
-            os.makedirs(OVERLAY_UPPER, exist_ok=True)
-            shutil.copy2(src_so, ARM64_SO)
-
-            # Deploy manifest to overlay upper
-            os.makedirs(os.path.dirname(ARM64_MANIFEST), exist_ok=True)
-            manifest_src = os.path.join(decky.DECKY_PLUGIN_DIR, "defaults/VkLayer_LS_frame_generation.json")
-            shutil.copy2(manifest_src, ARM64_MANIFEST)
-
-            # Mount overlay if not already
-            import subprocess
-            if not os.path.exists("/usr/lib/pressure-vessel"):
-                overlay_work = "/storage/.tmp/pv-work"
-                os.makedirs(overlay_work, exist_ok=True)
-                subprocess.run([
-                    "mount", "-t", "overlay", "overlay",
-                    "-o", f"lowerdir=/usr/lib,upperdir={OVERLAY_UPPER},workdir={overlay_work}",
-                    "/usr/lib"
-                ], check=True)
-
-            # Install wrapper
-            os.makedirs(os.path.join(LSFG_DIR, "bin"), exist_ok=True)
-            wrapper_src = os.path.join(decky.DECKY_PLUGIN_DIR, "defaults/lsfg")
-            shutil.copy2(wrapper_src, ARM64_WRAPPER)
-            os.chmod(ARM64_WRAPPER, 0o755)
-            home_link = os.path.expanduser("~/lsfg")
-            if os.path.lexists(home_link):
-                os.remove(home_link)
-            os.symlink(ARM64_WRAPPER, home_link)
-
-            # Enable thunks
-            _enable_thunks()
-
-            # DLL symlink
-            dll_dir = os.path.dirname(LOSSLESS_DLL_SYMLINK)
-            os.makedirs(dll_dir, exist_ok=True)
-            if os.path.exists(LOSSLESS_DLL_PATH) and not os.path.exists(LOSSLESS_DLL_SYMLINK):
-                os.symlink(LOSSLESS_DLL_PATH, LOSSLESS_DLL_SYMLINK)
-
-            return True
-        except Exception as e:
-            decky.logger.error(f"reinstall_layer failed: {e}")
-            return False
+        """Re-schedule install service (user must reboot)."""
+        return await self.install_runtime()
 
     async def install_runtime(self):
         """Schedule install-arm64.sh on next boot."""
