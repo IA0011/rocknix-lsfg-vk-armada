@@ -27,6 +27,9 @@ FEX_JSON = os.path.join(
     "usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.x86_64.json",
 )
 
+# FEX config (for Vulkan thunks)
+FEX_CONFIG = "/storage/.config/fex-emu/Config.json"
+
 # Lossless Scaling DLL detection (for user warning only)
 LOSSLESS_DLL_PATH = (
     "/storage/games-internal/roms/steam/steamapps/common/"
@@ -56,6 +59,18 @@ def _layer_deployed():
 
 def _dll_detected():
     return os.path.exists(LOSSLESS_DLL_PATH)
+
+
+def _thunks_enabled():
+    """Check if FEX Vulkan thunks are enabled."""
+    if not os.path.exists(FEX_CONFIG):
+        return False
+    try:
+        with open(FEX_CONFIG, "r") as f:
+            cfg = json.load(f)
+        return cfg.get("ThunksDB", {}).get("Vulkan") == 1
+    except Exception:
+        return False
 
 
 def _load_settings(path):
@@ -92,6 +107,7 @@ class Plugin:
             "system_installed": _system_installed(),
             "layer_deployed": _layer_deployed(),
             "dll_detected": _dll_detected(),
+            "thunks_enabled": _thunks_enabled(),
         }
 
     async def get_game_settings(self, app_id: str):
@@ -122,6 +138,26 @@ class Plugin:
             return True
         except Exception as e:
             decky.logger.error(f"reinstall_layer failed: {e}")
+            return False
+
+    async def enable_thunks(self):
+        """Enable FEX Vulkan thunks in Config.json."""
+        try:
+            os.makedirs(os.path.dirname(FEX_CONFIG), exist_ok=True)
+            if os.path.exists(FEX_CONFIG):
+                with open(FEX_CONFIG, "r") as f:
+                    cfg = json.load(f)
+            else:
+                cfg = {}
+            if "ThunksDB" not in cfg:
+                cfg["ThunksDB"] = {}
+            cfg["ThunksDB"]["Vulkan"] = 1
+            with open(FEX_CONFIG, "w") as f:
+                json.dump(cfg, f, indent=2)
+            decky.logger.info("FEX Vulkan thunks enabled")
+            return True
+        except Exception as e:
+            decky.logger.error(f"enable_thunks failed: {e}")
             return False
 
     async def install_runtime(self):
