@@ -16,8 +16,11 @@ ARM64_WRAPPER = os.path.join(LSFG_DIR, "bin/lsfg")
 FEX_CONFIG = "/storage/.config/fex-emu/Config.json"
 
 # Lossless Scaling DLL
-LOSSLESS_DLL_PATH = "/storage/games-internal/roms/steam/steamapps/common/Lossless Scaling/Lossless.dll"
-LOSSLESS_DLL_SYMLINK = "/storage/.local/share/Steam/steamapps/common/Lossless Scaling/Lossless.dll"
+LOSSLESS_DLL_PATHS = [
+    "/storage/.local/share/Steam/steamapps/common/Lossless Scaling/Lossless.dll",
+    "/storage/games-internal/roms/steam/steamapps/common/Lossless Scaling/Lossless.dll",
+    "/storage/roms/steam/steamapps/common/Lossless Scaling/Lossless.dll",
+]
 
 DEFAULT_SETTINGS = {
     "multiplier": 2,
@@ -53,7 +56,7 @@ def _layer_deployed():
 
 
 def _dll_detected():
-    return os.path.exists(LOSSLESS_DLL_PATH) or os.path.exists(LOSSLESS_DLL_SYMLINK)
+    return any(os.path.isfile(p) for p in LOSSLESS_DLL_PATHS)
 
 
 def _enable_thunks():

@@ -122,12 +122,6 @@ cfg.setdefault('ThunksDB', {})['Vulkan'] = 1
 json.dump(cfg, open('${FEX_CONFIG}', 'w'), indent=2)
 "
 
-# Create Lossless.dll symlink for standard path discovery
-DLL_SRC="/storage/games-internal/roms/steam/steamapps/common/Lossless Scaling/Lossless.dll"
-DLL_DIR="/storage/.local/share/Steam/steamapps/common/Lossless Scaling"
-if [ -f "$DLL_SRC" ]; then
-    mkdir -p "$DLL_DIR"
-    ln -sf "$DLL_SRC" "$DLL_DIR/Lossless.dll"
-fi
+# Lossless.dll: no symlink needed — findShaderDll() searches $HOME/.local/share/Steam/steamapps/common/ by default
 
 log "Done! Use: ~/lsfg %command%"
