@@ -133,7 +133,7 @@ function Content() {
   const [reinstalling, setReinstalling] = useState(false);
   const [installProgress, setInstallProgress] = useState("");
   const [profiles, setProfiles] = useState<string[]>([]);
-  const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<string>("default");
   const [profileSettings, setProfileSettings] = useState<Settings | null>(null);
 
   const refresh = async () => {
@@ -303,7 +303,7 @@ function Content() {
                   }))
                   .sort((a, b) => a.label.localeCompare(b.label))
               ]}
-              selectedOption={selectedProfile ?? "default"}
+              selectedOption={selectedProfile}
               onChange={async (opt) => {
                 const id = opt.data as string;
                 setSelectedProfile(id);
@@ -316,7 +316,7 @@ function Content() {
               }}
             />
           </PanelSectionRow>
-          {(selectedProfile === null || selectedProfile === "default") ? (
+          {selectedProfile === "default" ? (
             <>
               <SettingsControls settings={defaults} onChange={updateDefaultSetting} />
               <PanelSectionRow>
