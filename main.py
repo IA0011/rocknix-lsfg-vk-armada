@@ -1,51 +1,23 @@
 import os
 import json
 import shutil
-import subprocess
 import decky
 
 LSFG_DIR = "/storage/.config/lsfg-vk"
 GAMES_DIR = os.path.join(LSFG_DIR, "games")
 DEFAULT_CONF = os.path.join(LSFG_DIR, "default.json")
 
-# System-managed paths (installed by ROCKNIX lsfg-vk package)
-SYSTEM_SO = "/usr/share/lsfg-vk/liblsfg-vk.so"
-SYSTEM_JSON = "/usr/share/lsfg-vk/VkLayer_LS_frame_generation.json"
-SYSTEM_WRAPPER = "/usr/bin/lsfg"
-SYSTEM_SETUP = "/usr/bin/lsfg-vk-setup"
-
-# Runtime-install paths (overlay mode, no rebuild required)
-RUNTIME_SO = os.path.join(LSFG_DIR, "lib/liblsfg-vk.so")
-RUNTIME_JSON = os.path.join(LSFG_DIR, "lib/VkLayer_LS_frame_generation.json")
-RUNTIME_WRAPPER = os.path.join(LSFG_DIR, "bin/lsfg")
-RUNTIME_SETUP = os.path.join(LSFG_DIR, "bin/lsfg-vk-setup")
-
-# FEX RootFS install targets (deployed by lsfg-vk-setup.service)
-FEX_ROOTFS = "/storage/.local/share/fex-emu/RootFS/ArchLinux"
-FEX_SO = os.path.join(FEX_ROOTFS, "usr/lib/liblsfg-vk.so")
-FEX_JSON = os.path.join(
-    FEX_ROOTFS,
-    "usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.x86_64.json",
-)
-
-# FEX config (for Vulkan thunks)
-FEX_CONFIG = "/storage/.config/fex-emu/Config.json"
-
 # ARM64 native paths (all under writable /storage)
 ARM64_SO = os.path.join(LSFG_DIR, "lib/liblsfg-vk-arm64.so")
-ARM64_MANIFEST_DIR = os.path.join(LSFG_DIR, "manifests")
-ARM64_MANIFEST = os.path.join(ARM64_MANIFEST_DIR, "VkLayer_LS_frame_generation_arm64.json")
+ARM64_MANIFEST = os.path.join(LSFG_DIR, "manifests/VkLayer_LS_frame_generation_arm64.json")
 ARM64_WRAPPER = os.path.join(LSFG_DIR, "bin/lsfg")
 
-# Lossless Scaling DLL paths
-LOSSLESS_DLL_PATH = (
-    "/storage/games-internal/roms/steam/steamapps/common/"
-    "Lossless Scaling/Lossless.dll"
-)
-LOSSLESS_DLL_SYMLINK = (
-    "/storage/.local/share/Steam/steamapps/common/"
-    "Lossless Scaling/Lossless.dll"
-)
+# FEX config
+FEX_CONFIG = "/storage/.config/fex-emu/Config.json"
+
+# Lossless Scaling DLL
+LOSSLESS_DLL_PATH = "/storage/games-internal/roms/steam/steamapps/common/Lossless Scaling/Lossless.dll"
+LOSSLESS_DLL_SYMLINK = "/storage/.local/share/Steam/steamapps/common/Lossless Scaling/Lossless.dll"
 
 DEFAULT_SETTINGS = {
     "multiplier": 2,
@@ -55,32 +27,7 @@ DEFAULT_SETTINGS = {
 }
 
 
-def _system_installed():
-    """Check that lsfg-vk ARM64 native setup is fully functional."""
-    return (
-        os.path.exists(ARM64_SO)
-        and os.path.exists(ARM64_MANIFEST)
-        and _thunks_enabled()
-        and os.path.exists(ARM64_WRAPPER)
-    )
-
-
-def _layer_deployed():
-    """Check that the ARM64 native layer SO and manifest are both in place."""
-    return os.path.exists(ARM64_SO) and os.path.exists(ARM64_MANIFEST)
-
-
-def _manifest_deployed():
-    """Check that the manifest is in the pressure-vessel overrides dir."""
-    return os.path.exists(ARM64_MANIFEST)
-
-
-def _dll_detected():
-    return os.path.exists(LOSSLESS_DLL_PATH) or os.path.exists(LOSSLESS_DLL_SYMLINK)
-
-
 def _thunks_enabled():
-    """Check if FEX Vulkan thunks are enabled."""
     if not os.path.exists(FEX_CONFIG):
         return False
     try:
@@ -89,6 +36,36 @@ def _thunks_enabled():
         return cfg.get("ThunksDB", {}).get("Vulkan") == 1
     except Exception:
         return False
+
+
+def _system_installed():
+    """All components present for ARM64 frame gen to work."""
+    return (
+        os.path.exists(ARM64_SO)
+        and os.path.exists(ARM64_MANIFEST)
+        and os.path.exists(ARM64_WRAPPER)
+    )
+
+
+def _layer_deployed():
+    """Layer .so and manifest both exist."""
+    return os.path.exists(ARM64_SO) and os.path.exists(ARM64_MANIFEST)
+
+
+def _dll_detected():
+    return os.path.exists(LOSSLESS_DLL_PATH) or os.path.exists(LOSSLESS_DLL_SYMLINK)
+
+
+def _enable_thunks():
+    os.makedirs(os.path.dirname(FEX_CONFIG), exist_ok=True)
+    if os.path.exists(FEX_CONFIG):
+        with open(FEX_CONFIG, "r") as f:
+            cfg = json.load(f)
+    else:
+        cfg = {}
+    cfg.setdefault("ThunksDB", {})["Vulkan"] = 1
+    with open(FEX_CONFIG, "w") as f:
+        json.dump(cfg, f, indent=2)
 
 
 def _load_settings(path):
@@ -118,30 +95,13 @@ def _save_json(path, data):
         json.dump(data, f, indent=2)
 
 
-def _enable_thunks():
-    """Enable FEX Vulkan thunks in Config.json."""
-    os.makedirs(os.path.dirname(FEX_CONFIG), exist_ok=True)
-    if os.path.exists(FEX_CONFIG):
-        with open(FEX_CONFIG, "r") as f:
-            cfg = json.load(f)
-    else:
-        cfg = {}
-    if "ThunksDB" not in cfg:
-        cfg["ThunksDB"] = {}
-    cfg["ThunksDB"]["Vulkan"] = 1
-    with open(FEX_CONFIG, "w") as f:
-        json.dump(cfg, f, indent=2)
-
-
 class Plugin:
 
     async def get_status(self):
         return {
             "system_installed": _system_installed(),
             "layer_deployed": _layer_deployed(),
-            "manifest_deployed": _manifest_deployed(),
             "dll_detected": _dll_detected(),
-            "thunks_enabled": _thunks_enabled(),
         }
 
     async def get_game_settings(self, app_id: str):
@@ -162,132 +122,44 @@ class Plugin:
         _save_json(DEFAULT_CONF, json.loads(settings))
         return True
 
-    async def deploy_arm64(self):
-        """Deploy ARM64 native layer: manifest, thunks, DLL symlink, wrapper, boot service."""
+    async def reinstall_layer(self):
+        """Re-run deploy: copy wrapper, manifest, enable thunks."""
         try:
-            # 1. Install manifest to staging dir
-            os.makedirs(ARM64_MANIFEST_DIR, exist_ok=True)
-            manifest_src = os.path.join(decky.DECKY_PLUGIN_DIR, "defaults/VkLayer_LS_frame_generation.json")
-            shutil.copy2(manifest_src, ARM64_MANIFEST)
+            os.makedirs(os.path.join(LSFG_DIR, "bin"), exist_ok=True)
+            os.makedirs(os.path.join(LSFG_DIR, "manifests"), exist_ok=True)
 
-            # 1b. Deploy to pressure-vessel overrides (volatile, recreated on boot)
-            pv_dir = "/usr/lib/pressure-vessel/overrides/share/vulkan/implicit_layer.d"
-            os.makedirs(pv_dir, exist_ok=True)
-            shutil.copy2(ARM64_MANIFEST, os.path.join(pv_dir, "VkLayer_LS_frame_generation_arm64.json"))
-
-            # 1c. Create setup script for boot-time re-deployment
-            bin_dir = os.path.join(LSFG_DIR, "bin")
-            os.makedirs(bin_dir, exist_ok=True)
-            setup_path = os.path.join(bin_dir, "lsfg-vk-setup")
-            with open(setup_path, "w") as f:
-                f.write(f"""#!/bin/sh
-PV_DIR="/usr/lib/pressure-vessel/overrides/share/vulkan/implicit_layer.d"
-mkdir -p "$PV_DIR"
-cp "{ARM64_MANIFEST}" "$PV_DIR/"
-""")
-            os.chmod(setup_path, 0o755)
-
-            # 1d. Install systemd service
-            svc_dir = "/storage/.config/system.d"
-            wants_dir = os.path.join(svc_dir, "multi-user.target.wants")
-            os.makedirs(wants_dir, exist_ok=True)
-            svc_path = os.path.join(svc_dir, "lsfg-vk-arm64.service")
-            with open(svc_path, "w") as f:
-                f.write(f"""[Unit]
-Description=Deploy LSFG-VK ARM64 layer manifest
-After=local-fs.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart={setup_path}
-
-[Install]
-WantedBy=multi-user.target
-""")
-            link = os.path.join(wants_dir, "lsfg-vk-arm64.service")
-            if os.path.lexists(link):
-                os.remove(link)
-            os.symlink(svc_path, link)
-
-            # 2. Enable FEX Vulkan thunks
-            _enable_thunks()
-
-            # 2b. Persist thunks in ROCKNIX system.cfg (survives reboot)
-            system_cfg = "/storage/.config/system/configs/system.cfg"
-            setting_line = "steam.vulkan_host_library=1"
-            if os.path.exists(system_cfg):
-                with open(system_cfg, "r") as f:
-                    lines = f.readlines()
-                found = False
-                for i, line in enumerate(lines):
-                    if line.startswith("steam.vulkan_host_library"):
-                        lines[i] = setting_line + "\n"
-                        found = True
-                        break
-                if not found:
-                    lines.append(setting_line + "\n")
-                with open(system_cfg, "w") as f:
-                    f.writelines(lines)
-
-            # 3. Create Lossless.dll symlink
-            dll_dir = os.path.dirname(LOSSLESS_DLL_SYMLINK)
-            os.makedirs(dll_dir, exist_ok=True)
-            if not os.path.exists(LOSSLESS_DLL_SYMLINK):
-                if os.path.exists(LOSSLESS_DLL_PATH):
-                    os.symlink(LOSSLESS_DLL_PATH, LOSSLESS_DLL_SYMLINK)
-
-            # 4. Install lsfg wrapper
+            # Copy wrapper
             wrapper_src = os.path.join(decky.DECKY_PLUGIN_DIR, "defaults/lsfg")
             shutil.copy2(wrapper_src, ARM64_WRAPPER)
             os.chmod(ARM64_WRAPPER, 0o755)
-
-            # 5. Create ~/lsfg symlink
             home_link = os.path.expanduser("~/lsfg")
             if os.path.lexists(home_link):
                 os.remove(home_link)
             os.symlink(ARM64_WRAPPER, home_link)
 
-            decky.logger.info("ARM64 layer deployed successfully")
-            return True
-        except Exception as e:
-            decky.logger.error(f"deploy_arm64 failed: {e}")
-            return False
+            # Copy manifest
+            manifest_src = os.path.join(decky.DECKY_PLUGIN_DIR, "defaults/VkLayer_LS_frame_generation.json")
+            shutil.copy2(manifest_src, ARM64_MANIFEST)
 
-    async def reinstall_layer(self):
-        """Deploy ARM64 native layer (preferred) or fall back to legacy setup."""
-        # Try ARM64 native approach first
-        if os.path.exists(ARM64_SO):
-            return await self.deploy_arm64()
+            # Enable thunks
+            _enable_thunks()
 
-        # Legacy fallback: run setup script
-        setup = SYSTEM_SETUP if os.path.exists(SYSTEM_SETUP) else RUNTIME_SETUP
-        if not os.path.exists(setup):
-            return False
-        try:
-            subprocess.run([setup], check=True, timeout=30)
+            # DLL symlink
+            dll_dir = os.path.dirname(LOSSLESS_DLL_SYMLINK)
+            os.makedirs(dll_dir, exist_ok=True)
+            if os.path.exists(LOSSLESS_DLL_PATH) and not os.path.exists(LOSSLESS_DLL_SYMLINK):
+                os.symlink(LOSSLESS_DLL_PATH, LOSSLESS_DLL_SYMLINK)
+
             return True
         except Exception as e:
             decky.logger.error(f"reinstall_layer failed: {e}")
             return False
 
-    async def enable_thunks(self):
-        """Enable FEX Vulkan thunks in Config.json."""
-        try:
-            _enable_thunks()
-            decky.logger.info("FEX Vulkan thunks enabled")
-            return True
-        except Exception as e:
-            decky.logger.error(f"enable_thunks failed: {e}")
-            return False
-
     async def install_runtime(self):
-        """Schedule lsfg-vk install on next boot (runs natively, outside FEX)."""
-        install_script = os.path.join(
-            decky.DECKY_PLUGIN_DIR, "install-arm64.sh"
-        )
+        """Schedule install-arm64.sh on next boot."""
+        install_script = os.path.join(decky.DECKY_PLUGIN_DIR, "install-arm64.sh")
         if not os.path.exists(install_script):
-            decky.logger.error("install-arm64.sh not found in plugin directory")
+            decky.logger.error("install-arm64.sh not found")
             return False
         try:
             svc_dir = "/storage/.config/system.d"
@@ -296,8 +168,8 @@ WantedBy=multi-user.target
             os.makedirs(wants_dir, exist_ok=True)
             with open(svc_path, "w") as f:
                 f.write(f"""[Unit]
-Description=LSFG-VK one-time install
-After=network-online.target plugin_loader.service
+Description=LSFG-VK ARM64 install
+After=network-online.target
 Wants=network-online.target
 
 [Service]
@@ -307,10 +179,9 @@ ExecStart=/bin/sh {install_script}
 ExecStartPost=/bin/rm -f {svc_path} {wants_dir}/lsfg-vk-install.service
 """)
             link = os.path.join(wants_dir, "lsfg-vk-install.service")
-            if os.path.exists(link):
+            if os.path.lexists(link):
                 os.remove(link)
             os.symlink(svc_path, link)
-            decky.logger.info("lsfg-vk install scheduled for next boot")
             return True
         except Exception as e:
             decky.logger.error(f"install_runtime failed: {e}")
@@ -319,7 +190,6 @@ ExecStartPost=/bin/rm -f {svc_path} {wants_dir}/lsfg-vk-install.service
     async def _main(self):
         os.makedirs(LSFG_DIR, exist_ok=True)
         os.makedirs(GAMES_DIR, exist_ok=True)
-        decky.logger.info("LSFG Frame Generation plugin loaded")
 
     async def _unload(self):
-        decky.logger.info("LSFG Frame Generation plugin unloaded")
+        pass
