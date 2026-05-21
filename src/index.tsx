@@ -207,7 +207,7 @@ function Content() {
         <PanelSectionRow>
           <ButtonItem
             layout="below"
-            disabled={reinstalling}
+            disabled={reinstalling || dirty}
             onClick={async () => {
               setReinstalling(true);
               setInstallProgress("Downloading...");
@@ -217,7 +217,7 @@ function Content() {
                 setReinstalling(false);
                 return;
               }
-              setInstallProgress("Scheduling deploy...");
+              setInstallProgress("Deploying...");
               const ok = await installRuntime();
               setReinstalling(false);
               if (ok) {
@@ -228,16 +228,9 @@ function Content() {
               }
             }}
           >
-            {reinstalling ? installProgress || "Working..." : dirty ? "Reboot to complete install" : "Install LSFG-VK"}
+            {reinstalling ? installProgress || "Working..." : dirty ? "Reboot to apply" : "Install LSFG-VK"}
           </ButtonItem>
         </PanelSectionRow>
-        {dirty && (
-          <PanelSectionRow>
-            <div style={{ fontSize: "11px", color: "#ffaa00" }}>
-              Reboot to complete installation.
-            </div>
-          </PanelSectionRow>
-        )}
       </PanelSection>
     );
   }
@@ -355,7 +348,7 @@ function Content() {
         <PanelSectionRow>
           <ButtonItem
             layout="below"
-            disabled={reinstalling}
+            disabled={reinstalling || dirty}
             onClick={handleReinstall}
           >
             {reinstalling ? "Downloading..." : dirty ? "Reboot to apply" : "Reinstall Layer"}
