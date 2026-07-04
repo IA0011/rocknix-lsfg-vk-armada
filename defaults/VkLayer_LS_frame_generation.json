@@ -7,9 +7,6 @@
     "api_version": "1.4.328",
     "implementation_version": "2",
     "description": "LSFG frame generation (ARM64 native)",
-    "enable_environment": {
-      "LSFG_ENABLE": "1"
-    },
     "disable_environment": {
       "DISABLE_LSFGVK": "1"
     }
