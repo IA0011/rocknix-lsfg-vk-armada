@@ -3,6 +3,7 @@ import json
 import urllib.request
 import tarfile
 import decky
+import subprocess
 
 LSFG_DIR = "/var/home/armada/.config/lsfg-vk"
 GAMES_DIR = os.path.join(LSFG_DIR, "games")
@@ -241,6 +242,12 @@ json.dump(cfg, open(c, 'w'), indent=2)
 [ -f "$LSFG_DIR/default.json" ] || echo '{{"multiplier": 2, "fps_limit": 30, "flow_scale": 0.3, "performance_mode": 1}}' > "$LSFG_DIR/default.json"
 """)
         os.chmod(deploy_script, 0o755)
+
+        # Armada: Decky runs this plugin as root, so deploy immediately.
+        # Do not rely on a post-reboot systemd service.
+        subprocess.run(["/bin/bash", deploy_script], check=True)
+        return True
+
 
         # Create boot service for overlay mount (persistent across reboots)
         svc_dir = "/var/home/armada/.config/system.d"
