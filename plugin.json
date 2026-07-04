@@ -1,6 +1,6 @@
 {
   "name": "LSFG Frame Generation",
-  "author": "seilent",
+  "author": "IA0011",
   "flags": [
     "root"
   ],
@@ -10,8 +10,8 @@
       "framegen",
       "lsfg",
       "vulkan",
-      "rocknix"
+      "armada"
     ],
-    "description": "Enable Lossless Scaling frame generation on ROCKNIX. Supports ARM64 native via FEX Vulkan thunks and x86_64 FEX RootFS deployment."
+    "description": "Enable Lossless Scaling frame generation on Armada OS. Supports ARM64 native via FEX Vulkan thunks."
   }
 }
