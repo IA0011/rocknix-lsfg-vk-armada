@@ -17,7 +17,10 @@ TMP_DIR="/tmp/lsfg-vk-install"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 log() { echo "[lsfg-vk-armada] $*"; }
 run_root() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi; }
-if [ "$(uname -m)" != "aarch64" ]; then log "ERROR: aarch64 only; got $(uname -m)"; exit 1; fi
+case "$(uname -m)" in
+  aarch64|arm64|x86_64) ;;
+  *) log "ERROR: unsupported arch/context; got $(uname -m)"; exit 1 ;;
+esac
 log "Installing for user $TARGET_USER at $TARGET_HOME"
 mkdir -p "$BIN_DIR" "$USER_LIB_DIR" "$GAMES_DIR" "$XDG_LAYER_DIR" "$OVERLAY_UPPER" "$OVERLAY_WORK" "$TMP_DIR" "$(dirname "$FEX_CONFIG")"
 rm -rf "$GAMES_DIR"
