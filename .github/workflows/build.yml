@@ -22,12 +22,12 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p rocknix-lsfg-vk
-          cp plugin.json main.py install.sh package.json rocknix-lsfg-vk/
-          cp -r dist rocknix-lsfg-vk/
-          zip -r rocknix-lsfg-vk.zip rocknix-lsfg-vk/
+          mkdir -p armada-lsfg-vk
+          cp plugin.json main.py install-armada.sh package.json armada-lsfg-vk/
+          cp -r dist armada-lsfg-vk/
+          zip -r armada-lsfg-vk.zip armada-lsfg-vk/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: rocknix-lsfg-vk
-          path: rocknix-lsfg-vk.zip
+          name: armada-lsfg-vk
+          path: armada-lsfg-vk.zip
