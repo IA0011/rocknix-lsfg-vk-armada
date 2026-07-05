@@ -244,4 +244,4 @@ IA0011
 
 ## License
 
-GPL-2.0
+GPL-1.0
