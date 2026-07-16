@@ -200,17 +200,51 @@ class Plugin:
             return {"success": False, "error": str(e)}
 
     async def install_runtime(self):
-        """Run the Armada/Fedora installer immediately."""
+        """Run the Armada/Fedora installer immediately.
+
+        Armada updates may cause Decky/Steam to launch plugin methods with a
+        polluted dynamic-library environment. In that state, invoking plain
+        `bash` can load the wrong libreadline and fail with errors such as:
+
+            bash: symbol lookup error: bash: undefined symbol: rl_trim_arg_from_keyseq
+
+        Use the system shell by absolute path and a minimal environment so the
+        installer runs like it does from a clean SSH session.
+        """
         import subprocess
+        import pwd
+
         plugin_dir = decky.DECKY_PLUGIN_DIR
         installer = os.path.join(plugin_dir, "install-armada.sh")
         if not os.path.exists(installer):
             decky.logger.error(f"install-armada.sh not found at {installer}")
             return False
-        env = os.environ.copy()
-        env.setdefault("SUDO_USER", os.environ.get("DECKY_USER", "armada"))
+
+        install_user = os.environ.get("DECKY_USER") or os.environ.get("SUDO_USER") or "armada"
         try:
-            result = subprocess.run(["/usr/bin/env", "bash", installer], env=env, capture_output=True, text=True, timeout=180)
+            install_home = pwd.getpwnam(install_user).pw_dir
+        except Exception:
+            install_home = USER_HOME
+
+        env = {
+            "HOME": install_home,
+            "USER": install_user,
+            "LOGNAME": install_user,
+            "SUDO_USER": install_user,
+            "PATH": "/usr/sbin:/usr/bin:/sbin:/bin",
+            "LANG": os.environ.get("LANG", "C.UTF-8"),
+            "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
+        }
+
+        try:
+            result = subprocess.run(
+                ["/usr/bin/bash", installer],
+                cwd=plugin_dir,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
             if result.stdout:
                 decky.logger.info(result.stdout)
             if result.stderr:
